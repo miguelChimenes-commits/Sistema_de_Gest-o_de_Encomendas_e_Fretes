@@ -1,302 +1,299 @@
 #include <stdio.h>
-#include <stdbool.h>
+#include <math.h>
 
-
-// preparando arquivo texto ==============
-
-FILE *arquivo_texto;
-
-// structs ===============================
-typedef struct{
-	
-	float peso;
-	float distancia;
-		
-}encomendas;
-
-typedef struct{
-	
-	float tacha;
-	float distancia;
-	
-}tipo;
-
-typedef struct{
-	
-	float taxa;
-	float ml_distancia;
-
-	
-}entrega;
-
-
-// prototipos ============================
-int dialogo(int variavel);
-int total_pacotes(int variavel);
-float meta_diaria(float variavel);
-int registar_pacote(int quantidade_de_pacotes, encomendas pacotes[]);
+double frete_bruto(double dist, double peso, int opcao, int cupom); 
 
 int main(){
-	// varivel inportante ================
-	float meta_diaria_v = 0;
-	int menu = 0;
-	
-	// variveel do vetor =================
-	int quantidade_de_pacotes = 0;
-	int novos_pacotes = 0;
-	int registrados = 0;
-	
-	
-	// variaveis Categoria de Entrega ====
-	entrega padrao = {0.0f, 1.20f};
-	entrega expreca = {15.0f, 1.80f};
-	entrega prioritaria = {30.0f, 2.50f};
-	
-	
-	// vetores ===========================
-	encomendas pacotes[100];
+    
+    double peso = 0.0;
+    double distancia = 0.0;
+    int quantidade_de_pacotes = 0;
+    int tipo_de_entrega = 0;
+    int opcao_cupom = 0;
+    double desc_cupom = 0;
+    
+    char escolha; 
+    double meta_diaria;
+    
+    int total_encomendas = 0;
+    double faturamento_total = 0.0;
+    double soma_pesos = 0.0;
+    double soma_distancias = 0.0;
+    double maior_frete = 0.0;          
+    double menor_frete = 999999.0;    
+    int total_isencoes = 0;
+    
+    int qtd_padrao = 0;
+    int qtd_expressa = 0;
+    int qtd_prioritaria = 0;
 
-	
-	// codigo principal ==================
-	for(;;){
-		
-		// primeiro dialogo ==========
-		menu = dialogo(menu);
-		
-		
-		if(menu == 1){
-			if(quantidade_de_pacotes >= 100){
-				printf("\nLimite de 100 pacotes atingido.\n");
-				continue;
-			}
-				
-				
-		//quantos pacotes no total ===========
-			novos_pacotes = total_pacotes(0);
-			
-			if(novos_pacotes == 0){
-				break;
-			}
-			
-			if(novos_pacotes > 100 - quantidade_de_pacotes){
-				printf(
-					"\nSo ha espaco para mais %d pacotes.\n",
-					100 - quantidade_de_pacotes
-				);
-				continue;
-			}
-			
-			registrados = registar_pacote(
-				novos_pacotes,
-				&pacotes[quantidade_de_pacotes]
-			);
-			
-			quantidade_de_pacotes += registrados;
-				
-				
-		}else if(menu == 2){
-			printf(
-				"\nTotal de pacotes cadastrados: %d\n",
-				quantidade_de_pacotes
-			);
-			
-			for(int i = 0; i < quantidade_de_pacotes; i++){
-				printf(
-					"Pacote [%d]: %.2f kg | %.2f km\n",
-					i + 1,
-					pacotes[i].peso,
-					pacotes[i].distancia
-				);
-			}
-				
-				
-					
-		}else if(menu == 3){
-			if(meta_diaria_v == 0){
-				meta_diaria_v = meta_diaria(meta_diaria_v);
-			}
-			
-			printf("\nMeta diaria: R$ %.2f\n", meta_diaria_v);
-			printf("Os demais indicadores ainda serao implementados.\n");
-				
-			
-		}else if(menu == 4){
-			printf("\nPrograma encerrado.\n");
-			break;
-				
-				
-		}
-				
-						
-	}
-	return 0;	
+    for(;;) {
+        printf("Qual a meta de faturamento diária? ");
+        if (scanf("%lf", &meta_diaria) != 1 || meta_diaria < 0) {
+            printf("\n[ERRO] Entrada inválida! Digite um valor numérico positivo.\n\n");
+            while(getchar() != '\n'); 
+        } else {
+            printf("-> OK: Meta diária registrada.\n");
+            break;
+        }
+    }
+    
+    for(;;){
+        printf("\n1 - Cadastrar e Processar encomenda;\n");
+        printf("2 - Exibir Resumo Estatístico do dia;\n");
+        printf("3 - Exibir Indicadores;\n");
+        printf("4 - Sair;\n");
+        printf("Informe a opção: ");
+        
+        scanf(" %c", &escolha); 
+
+        if(escolha == '1'){
+            printf("\n");
+            for(;;){
+                printf("Qual o peso de cada pacote em Kg? ");
+                if (scanf("%lf", &peso) != 1 || peso <= 0) {
+                    printf("\n[ERRO] Peso inválido! O peso deve ser maior que zero.\n\n");
+                    while(getchar() != '\n'); 
+                }else{
+                    printf("-> OK: Peso registrado.\n\n");
+                    break;
+                }
+            }
+            
+            for (;;){
+                printf("Quantos pacotes no total? ");
+                if (scanf("%d", &quantidade_de_pacotes) != 1 || quantidade_de_pacotes > 100 || quantidade_de_pacotes <= 0) {
+                    printf("\n[ERRO] Quantidade inválida! Informe um valor limite entre 1 e 100.\n\n");
+                    while(getchar() != '\n'); 
+                }else{
+                    printf("-> OK: Número de pacotes registrado.\n\n");
+                    break;
+                }
+            }
+
+            for (;;){
+                printf("Qual a distância a ser percorrida em Km? ");
+                if (scanf("%lf", &distancia) != 1 || distancia <= 0) {
+                    printf("\n[ERRO] Distância inválida! Informe um valor maior que zero.\n\n");
+                    while(getchar() != '\n'); 
+                }else{
+                    printf("-> OK: Distância registrada.\n\n");
+                    break;
+                }
+            }
+            
+            printf("================================================================================\n");
+            printf("Opção | Categoria de Entrega   | Taxa Adicional | Multiplicador de Distância\n");
+            printf("1     | Padrão                 | R$ 0,00        | R$ 1,20/km\n");
+            printf("2     | Expressa               | R$ 15,00       | R$ 1,80/km\n");
+            printf("3     | Prioritária            | R$ 30,00       | R$ 2,50/km\n");          
+            printf("================================================================================\n");
+            
+            for (;;){
+                printf("Qual opção deseja? ");
+                if (scanf("%d", &tipo_de_entrega) != 1) {
+                    printf("\n[ERRO] Opção inválida! Digite um número de 1 a 3.\n\n");
+                    while(getchar() != '\n'); 
+                    continue;
+                }
+
+                if(tipo_de_entrega == 1){ 
+                    printf("-> OK: Entrega do tipo Padrão selecionada.\n");
+                    qtd_padrao++;
+                    break;
+                }else if(tipo_de_entrega == 2){
+                    printf("-> OK: Entrega do tipo Expressa selecionada.\n");
+                    qtd_expressa++;
+                    break; 
+                }else if(tipo_de_entrega == 3){
+                    printf("-> OK: Entrega do tipo Prioritária selecionada.\n");
+                    qtd_prioritaria++;
+                    break;
+                }else{
+                    printf("\n[ERRO] Opção de entrega inválida! Escolha 1, 2 ou 3.\n\n");                 
+                }
+            }
+
+            printf("\n");
+            
+                printf("\n=============================================================================\n");
+                printf(" CUPOM | NOME DO CUPOM |   REGRA\n");
+                 printf("=============================================================================\n");
+                printf("[1020] |   LOG10       | 10%% de desconto.\n");
+                printf("[2030] | DESCONTO15    | R15,00 de desconto (não pode ser menor que R$ 0,00 )\n");
+                printf("-----------------------------------------------------------------------------\n");
+
+                for(;;){
+                
+                printf("CUPOM: ");
+                if (scanf("%d", &opcao_cupom) != 1 || &opcao_cupom <= 0) {
+                    printf("\n[ERRO] cupom inválido!.\n\n");
+                    while(getchar() != '\n'); 
+                    
+                }else if(opcao_cupom == 1020 || opcao_cupom == 2030){
+                    printf("-> OK: cupom aplicado.\n\n");
+                    break;
+                }else{
+                    
+                    printf("\n[ERRO] cupom inválido!.\n\n");
+                }        
+            }
+                
+            double saida = frete_bruto(distancia, peso, tipo_de_entrega, opcao_cupom);
+            
+             switch(opcao_cupom){
+                 
+                 case 1020:
+                     
+                desc_cupom = saida * 0.1;
+                desc_cupom = desc_cupom + saida;
+                 break;
+         
+                 case 2030:
+                 
+                desc_cupom = saida - 15;
+                     
+                     if(desc_cupom < 0){
+                         desc_cupom = 0.00;
+                         
+                     }else{
+                         
+                     }
+                     
+                 break;
+
+                 default:
+
+                 break;
+    }
+            
+            printf("\n>> Valor do frete bruto calculado: R$ %.2f <<\n", desc_cupom);
+            
+            total_encomendas = total_encomendas + 1;
+            faturamento_total = faturamento_total + saida;
+            soma_pesos = soma_pesos + peso;
+            soma_distancias = soma_distancias + distancia;
+            
+            if(saida == 0.0) {
+                total_isencoes = total_isencoes + 1;
+            }
+            if(saida > maior_frete) {
+                maior_frete = saida;
+            }
+            if(saida < menor_frete) {
+                menor_frete = saida;
+            }
+            
+        }else if(escolha == '2'){
+            if(total_encomendas == 0) {
+                printf("\n[ALERTA] Nenhuma encomenda cadastrada ainda!\n");
+            }else{
+                printf("\n==================================================\n");
+                printf("        RESUMO FINANCEIRO E OPERACIONAL\n"); 
+                printf("==================================================\n");
+                printf(" Total de encomendas processadas  : %d\n", total_encomendas);
+                printf(" Faturamento total em fretes      : R$ %.2f\n", faturamento_total);
+                printf("--------------------------------------------------\n");
+                
+                if(total_encomendas > 0) {
+                    printf(" Média de peso das encomendas     : %.2f kg\n", (soma_pesos / total_encomendas));
+                    printf(" Média de distância percorrida    : %.2f km\n", (soma_distancias / total_encomendas));
+                    printf("--------------------------------------------------\n");
+                    printf(" Maior frete individual cobrado   : R$ %.2f\n", maior_frete);
+                    printf(" Menor frete individual cobrado   : R$ %.2f\n", menor_frete);
+                } else {
+                    printf(" Média de peso das encomendas     : 0.00 kg\n");
+                    printf(" Média de distância percorrida    : 0.00 km\n");
+                    printf("--------------------------------------------------\n");
+                    printf(" Maior frete individual cobrado   : R$ 0.00\n");
+                    printf(" Menor frete individual cobrado   : R$ 0.00\n");
+                }
+                printf(" Total de isenções (Frete Grátis) : %d pacote(s)\n", total_isencoes);
+                printf("==================================================\n");
+            }
+            
+        }else if(escolha == '3'){
+            if(total_encomendas == 0) {
+                printf("\n[ALERTA] Nenhuma encomenda cadastrada ainda!\n");
+            }else{
+                
+                char mais_usada[] = "Nenhuma"; 
+                if(qtd_padrao >= qtd_expressa && qtd_padrao >= qtd_prioritaria && total_encomendas > 0) {
+                    
+                }
+
+                printf("\n==================================================\n");
+                printf("        INDICADORES E ALERTAS OPERACIONAIS\n"); 
+                printf("==================================================\n");
+                printf(" Meta de faturamento diária       : R$ %.2f\n", meta_diaria);
+                printf(" Faturamento total acumulado      : R$ %.2f\n", faturamento_total);
+                
+                if(faturamento_total >= meta_diaria) {
+                    printf(" Status da meta atual             : META ATINGIDA\n");
+                } else {
+                    printf(" Status da meta atual             : Faltam R$ %.2f\n", (meta_diaria - faturamento_total));
+                }
+                printf("--------------------------------------------------\n");
+                
+                printf(" Categoria mais utilizada no dia  : ");
+                if(total_encomendas == 0) {
+                    printf("Nenhuma\n");
+                }else if(qtd_padrao >= qtd_expressa && qtd_padrao >= qtd_prioritaria) {
+                    printf("Padrão\n");
+                }else if(qtd_expressa >= qtd_padrao && qtd_expressa >= qtd_prioritaria) {
+                    printf("Expressa\n");
+                }else {
+                    printf("Prioritária\n");
+                }
+                
+                if(total_encomendas > 0) {
+                    printf(" Taxa de entregas com frete grátis: %.1f%%\n", ((double)total_isencoes / total_encomendas) * 100.0);
+                } else {
+                   
+                }
+                printf("==================================================\n");
+            }
+            
+        }else if(escolha == '4'){
+            printf("\nObrigado por acessar nosso sistema!\n");
+            break;
+        }else{
+            printf("\n[ERRO] Opção inválida. Tente novamente.\n");
+            while(getchar() != '\n'); 
+        }
+    }
+  
+    return 0;
 }
-// funçoes =-=-=-==-=-=-==-=-=-==-=-=-==-=-=-==-=-=-==-=-=-==-=-=-==-=-=-==-=-=-==-=-=-=
 
-// funçao opçoes ==========================================
-int dialogo(int menu){
-	int resultado;
-	int caractere;
-	
-	for(;;){
-		printf("\n");
-		printf("1 - Cadastrar e Processar encomenda;\n");
-		printf("2 - Exibir Resumo Estatistico do dia;\n");
-		printf("3 - Exibir Indicadores;\n");
-		printf("4 - Sair;\n");
-		printf("\n");
-		
-		
-		printf("Informe a opcao: ");
-		resultado = scanf("%d", &menu);
-		
-		if(resultado == EOF){
-			return 4;
-		}
-		
-		while((caractere = getchar()) != '\n' && caractere != EOF);
-		
-		if(resultado != 1 || menu < 1 || menu > 4){
-			printf("\n[ERRO] Entrada invalida! Digite uma opcao de 1 a 4.\n\n");
-			
-		}else{
-			printf("OK: opcao registrada :\n");
-			printf("\n");
-			return menu;
-		}
-	}
+double frete_bruto(double dist, double peso, int opcao, int cupom){
+    double multiplicadorDist = 0.0;
+    double taxaAdd = 0.0;
+    double vPeso = 0.0;
+    double desc_cupom;
+    
+    switch (opcao){
+        case 1: 
+            taxaAdd = 0.00;
+            multiplicadorDist = 1.20;
+            break;
+        case 2: 
+            taxaAdd = 15.00;
+            multiplicadorDist = 1.80; 
+            break;
+        case 3: 
+            taxaAdd = 30.00;
+            multiplicadorDist = 2.50;
+        
+    }
+    
+    if(peso > 5.00){
+        vPeso = 3.50;
+    }else{
+        vPeso = 2.00;
+    }
+
+    double calculo_Frete_Bruto = (dist * multiplicadorDist) + (peso * vPeso) + taxaAdd;
+    
+    return calculo_Frete_Bruto;
 }
-
-// funçoes opçao 1 =====================================================================
-// funçao meta diaria =====================================
-float meta_diaria(float meta_diaria_v){
-	int resultado;
-	int caractere;
-	
-	for(;;){
-		printf("\n");
-		printf("Qual a meta de faturamento diario de hoje? ");
-		 
-		resultado = scanf("%f", &meta_diaria_v);
-		
-		if(resultado == EOF){
-			return 0;
-		}
-		
-		while((caractere = getchar()) != '\n' && caractere != EOF);
-		
-		if(resultado != 1 || !(meta_diaria_v > 0)){
-			printf("\n[ERRO] Entrada inválida! Digite um valor numérico positivo.\n\n");
-			
-		}else{
-			printf("OK: Meta diaria registrada.\n");
-			break;
-		}
-	}
-	
-	return meta_diaria_v;
-}
-	
-	
-//funçao Cadastrar e Processar encomenda ==================
-int total_pacotes(int quantidade_de_pacotes){
-	//variaveis da funçao =======
-	int resultado;
-	int caractere;
-	
-	for(;;){
-		printf("quantos pacotes no tatal :");
-		resultado = scanf("%d", &quantidade_de_pacotes);
-		
-		if(resultado == EOF){
-			return 0;
-		}
-		
-		while((caractere = getchar()) != '\n' && caractere != EOF);
-		
-		if(resultado != 1 || quantidade_de_pacotes <= 0 || quantidade_de_pacotes > 100){
-			printf("\n[ERRO] Entrada invalida! Digite um valor entre 1 e 100.\n\n");
-		}else{
-			return quantidade_de_pacotes;
-		}
-	}
-}
-
-
-//funçao cadastrar e registar pacote ======================
-int registar_pacote(int quantidade_de_pacotes, encomendas pacotes[]){
-	FILE *arquivo = fopen("logistica.txt", "a");
-	int resultado;
-	int caractere;
-	int registrados = 0;
-	float peso;
-	float distancia;
-	
-	if(arquivo == NULL){
-		printf("Nao foi possivel abrir o arquivo.\n");
-		return 0;
-	}
-	
-	for(int i = 0; i < quantidade_de_pacotes; i++){
-		for(;;){
-			printf("qual o peso do pacote [%d] :", i + 1);
-			resultado = scanf("%f", &peso);
-			
-			if(resultado == EOF){
-				fclose(arquivo);
-				return registrados;
-			}
-			
-			while((caractere = getchar()) != '\n' && caractere != EOF);
-			
-			if(resultado != 1 || !(peso > 0)){
-				printf("\n[ERRO] Digite um peso maior que zero.\n");
-			}else{
-				break;
-			}
-		}
-		
-		for(;;){
-			printf("Qual a distância a ser percorrida em Km:");
-			resultado = scanf("%f", &distancia);
-			
-			if(resultado == EOF){
-				fclose(arquivo);
-				return registrados;
-			}
-			
-			while((caractere = getchar()) != '\n' && caractere != EOF);
-			
-			if(resultado != 1 || !(distancia > 0)){
-				printf("\n[ERRO] Digite uma distancia maior que zero.\n");
-			}else{
-				break;
-			}
-		}
-		
-		if(fprintf(arquivo, "%.2f|%.2f\n", peso, distancia) < 0){
-			printf("\nErro ao escrever no arquivo.\n");
-			fclose(arquivo);
-			return registrados;
-		}
-		
-		if(fflush(arquivo) == EOF){
-			printf("\nErro ao salvar no arquivo.\n");
-			fclose(arquivo);
-			return registrados;
-		}
-		
-		pacotes[i].peso = peso;
-		pacotes[i].distancia = distancia;
-		registrados++;
-		
-		printf("\nPacote cadastrado com sucesso.\n\n");
-	}
-	
-	if(fclose(arquivo) == EOF){
-		printf("\nErro ao fechar o arquivo.\n");
-	}
-		
-	return registrados;
-}
-
