@@ -14,6 +14,7 @@ typedef struct{
 
 
 encomendas encomenda[MAXIMO_ENCOMENDAS];
+void indicadores_e_alertas();
 double frete_bruto(double dist, double peso, int opcao, int cupom);
 
 int main() {
@@ -53,12 +54,20 @@ int main() {
         }
 
 	for(;;){
-        printf("\n1 - Cadastrar e Processar encomenda;\n");
-        printf("2 - Exibir Resumo Estatístico do dia;\n");
-        printf("3 - Exibir Indicadores;\n");
-        printf("4 - Sair;\n");
-        printf("Informe a opção: ");
-        
+
+        printf("LOGTECH SGEF - VERSAO 2.0\n");
+        printf("=====================================================\n");
+        printf("1-Cadastrar e Processar Encomenda\n");
+        printf("2-Listar Encomendas Registradas\n");
+        printf("3-Buscar Encomendas por ID\n");
+        printf("4-Cancelar Encomenda\n");
+        printf("5-Exibir Resumo Estatistico e Indicadores\n");
+        printf("6-Exportar Relatorio Diario (.txt)\n");
+        printf("7-Limpar/Reiniciar Historico do Dia\n");
+        printf("8-Sair\n");
+        printf("=====================================================\n");
+        printf("Escolha uma opcao: ");
+
         scanf(" %c", &escolha); 
     }
 
@@ -195,29 +204,21 @@ int main() {
 		  if(total_encomendas == 0) {
                 printf("\n[ALERTA] Nenhuma encomenda cadastrada ainda!\n");
             }else{
-                printf("\n==================================================\n");
-                printf("        RESUMO FINANCEIRO E OPERACIONAL\n"); 
-                printf("==================================================\n");
-                printf(" Total de encomendas processadas  : %d\n", total_encomendas);
-                printf(" Faturamento total em fretes      : R$ %.2f\n", faturamento_total);
-                printf("--------------------------------------------------\n");
-                
-                if(total_encomendas > 0) {
-                    printf(" Média de peso das encomendas     : %.2f kg\n", (soma_pesos / total_encomendas));
-                    printf(" Média de distância percorrida    : %.2f km\n", (soma_distancias / total_encomendas));
-                    printf("--------------------------------------------------\n");
-                    printf(" Maior frete individual cobrado   : R$ %.2f\n", maior_frete);
-                    printf(" Menor frete individual cobrado   : R$ %.2f\n", menor_frete);
-                } else {
-                    printf(" Média de peso das encomendas     : 0.00 kg\n");
-                    printf(" Média de distância percorrida    : 0.00 km\n");
-                    printf("--------------------------------------------------\n");
-                    printf(" Maior frete individual cobrado   : R$ 0.00\n");
-                    printf(" Menor frete individual cobrado   : R$ 0.00\n");
-                }
-                printf(" Total de isenções (Frete Grátis) : %d pacote(s)\n", total_isencoes);
-                printf("==================================================\n");
-            }
+                 printf("\n=========================================\n");
+                    printf("     LOGTECH SGEF - VERSAO 2.0     \n");
+                    printf("=========================================\n");
+                    printf("Total de Encomendas Processadas : %d\n", total_encomendas);
+                    printf("Total de Encomendas Ativas      : %d\n", total_encomendas - total_isencoes);
+                    printf("Total de Encomendas Canceladas  : %d\n", 0); // Placeholder, replace with actual value if available
+                    printf("-----------------------------------------\n");
+                    printf("Faturamento Total em Fretes     : R$ %.2f\n", );
+                    printf("Media de peso (Encomendas Ativas): %.2f kg\n", );
+                    printf("Media de distancia (Ativas)     : %.2f km\n", );
+                    printf("-----------------------------------------\n");
+                    printf("Maior frete individual cobrado  : R$ %.2f\n", );
+                    printf("Menor frete individual cobrado  : R$ %.2f\n", );
+                    printf("Total de isencoes (Frete Gratis): %d encomendas\n", );
+                    printf("=========================================\n");
 		break;
 
 		case 3:
@@ -231,39 +232,25 @@ int main() {
                 if(qtd_padrao >= qtd_expressa && qtd_padrao >= qtd_prioritaria && total_encomendas > 0) {
                     
                 }
-
-                printf("\n==================================================\n");
-                printf("        INDICADORES E ALERTAS OPERACIONAIS\n"); 
-                printf("==================================================\n");
-                printf(" Meta de faturamento diária       : R$ %.2f\n", meta_diaria);
-                printf(" Faturamento total acumulado      : R$ %.2f\n", faturamento_total);
                 
-                if(faturamento_total >= meta_diaria) {
-                    printf(" Status da meta atual             : META ATINGIDA\n");
-                } else {
-                    printf(" Status da meta atual             : Faltam R$ %.2f\n", (meta_diaria - faturamento_total));
-                }
-                printf("--------------------------------------------------\n");
-                
-                printf(" Categoria mais utilizada no dia  : ");
-                if(total_encomendas == 0) {
-                    printf("Nenhuma\n");
-                }else if(qtd_padrao >= qtd_expressa && qtd_padrao >= qtd_prioritaria) {
-                    printf("Padrão\n");
-                }else if(qtd_expressa >= qtd_padrao && qtd_expressa >= qtd_prioritaria) {
-                    printf("Expressa\n");
-
-					 }else {
-                    printf("Prioritária\n");
-                }
-                
-                if(total_encomendas > 0) {
-                    printf(" Taxa de entregas com frete grátis: %.1f%%\n", ((double)total_isencoes / total_encomendas) * 100.0);
-                } else {
-                   
-                }
-                printf("==================================================\n");
-            }
+                printf("=========================================\n");
+                printf("     LOGTECH LOGISTICS - RELATORIO DIARIO\n");
+                printf("=========================================\n");
+                printf("Data da Exportacao              : %s\n", );
+                printf("Total de Encomendas Processadas : %d\n", );
+                printf("Total de Encomendas Ativas      : %d\n", );
+                printf("Total de Encomendas Canceladas  : %d\n", );
+                printf("-----------------------------------------\n");
+                printf("Faturamento Total em Fretes     : R$ %.2f\n", );
+                printf("Media de Peso (Encomendas Ativas): %.2f kg\n", );
+                printf("Media de Distancia (Ativas)     : %.2f km\n", );
+                printf("-----------------------------------------\n");
+                printf("Maior Frete Individual Cobrado  : R$ %.2f\n", );
+                printf("Menor Frete Individual Cobrado  : R$ %.2f\n", );
+                printf("Total de Isencoes (Frete Gratis): %d encomenda(s)\n", );
+                printf("-----------------------------------------\n");
+                printf("   INDICADORES E ALERTAS OPERACIONAIS    \n");
+                printf("-----------------------------------------\n");
 
 		break;
 
@@ -277,6 +264,8 @@ int main() {
 			while(getchar() != '\n');
 
 	}
+}
+    }
 }
 
 	return 0;
