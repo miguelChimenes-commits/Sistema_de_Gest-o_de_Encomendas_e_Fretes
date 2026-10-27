@@ -1,0 +1,586 @@
+#include <stdio.h>
+#include <stdbool.h>
+#include <string.h>
+#include <math.h>
+#include <errno.h>
+#include <time.h>
+
+#define LIMITE 100
+
+// preparando arquivo texto ==============
+
+FILE *arquivo_texto;
+
+// structs ===============================
+typedef struct{
+
+    int id;
+    int categoria;
+    double peso;
+    double distancia;
+    int cupom;
+    double valor_bruto;
+    double valor_final;
+    char status[10];
+
+}encomendas;
+
+typedef struct{
+
+    double taxa;
+    double ml_distancia;
+
+}entrega;
+
+// prototipos ============================
+int dialogo(int variavel);
+int total_pacotes(int variavel);
+double meta_diaria(double variavel);
+int ler_inteiro(const char mensagem[], int minimo, int maximo);
+double ler_positivo(const char mensagem[]);
+bool ler_linha(char linha[], int tamanho);
+int registar_pacote(int novos, int quantidade, encomendas pacotes[], entrega categorias[]);
+void calcular_frete(encomendas *pacote, entrega categorias[]);
+bool frete_gratis(encomendas pacote);
+const char *nome_categoria(int categoria);
+void comprovante(encomendas pacote);
+int carregar_pacotes(encomendas pacotes[]);
+bool salvar_pacotes(int quantidade, encomendas pacotes[]);
+void listar_pacotes(int quantidade, encomendas pacotes[]);
+int buscar_pacote(int quantidade, encomendas pacotes[], int id);
+void cancelar_pacote(int quantidade, encomendas pacotes[]);
+void resumo(FILE *saida, int quantidade, encomendas pacotes[], double meta);
+void exportar_relatorio(int quantidade, encomendas pacotes[], double meta);
+bool limpar_historico(void);
+
+int main(void){
+    // varivel inportante ================
+    double meta_diaria_v = 0;
+    int menu = 0;
+    int id;
+    int posicao;
+
+    // variveel do vetor =================
+    int quantidade_de_pacotes = 0;
+    int novos_pacotes = 0;
+    int registrados = 0;
+
+    // variaveis Categoria de Entrega ====
+    entrega padrao = {0.0, 1.20};
+    entrega expreca = {15.0, 1.80};
+    entrega prioritaria = {30.0, 2.50};
+
+    // vetores ===========================
+    encomendas pacotes[LIMITE];
+    entrega categorias[3] = {padrao, expreca, prioritaria};
+
+    quantidade_de_pacotes = carregar_pacotes(pacotes);
+    if(quantidade_de_pacotes == -1){
+        printf("\nNao foi possivel carregar o historico. Arquivo preservado.\n");
+        return 1;
+    }
+
+    printf("\nHistorico carregado: %d encomenda(s).\n", quantidade_de_pacotes);
+
+    // codigo principal ==================
+    for(;;){
+        // primeiro dialogo ==========
+        menu = dialogo(menu);
+
+        if(menu == 1){
+            if(quantidade_de_pacotes >= LIMITE){
+                printf("\nLimite de 100 pacotes atingido, incluindo cancelados.\n");
+                continue;
+            }
+
+            //quantos pacotes no total ===========
+            novos_pacotes = total_pacotes(0);
+            if(novos_pacotes == 0){
+                break;
+            }
+            if(novos_pacotes > LIMITE - quantidade_de_pacotes){
+                printf("\nSo ha espaco para mais %d pacotes.\n", LIMITE - quantidade_de_pacotes);
+                continue;
+            }
+
+            registrados = registar_pacote(novos_pacotes, quantidade_de_pacotes, pacotes, categorias);
+            quantidade_de_pacotes += registrados;
+
+        }else if(menu == 2){
+            listar_pacotes(quantidade_de_pacotes, pacotes);
+
+        }else if(menu == 3){
+            id = ler_inteiro("Informe o ID: ", 1, LIMITE);
+            if(id == -1) break;
+            posicao = buscar_pacote(quantidade_de_pacotes, pacotes, id);
+            if(posicao == -1){
+                printf("\nEncomenda nao localizada.\n");
+            }else{
+                comprovante(pacotes[posicao]);
+            }
+
+        }else if(menu == 4){
+            cancelar_pacote(quantidade_de_pacotes, pacotes);
+
+        }else if(menu == 5 || menu == 6){
+            if(meta_diaria_v == 0){
+                meta_diaria_v = meta_diaria(meta_diaria_v);
+            }
+            if(meta_diaria_v == 0) break;
+            if(menu == 5){
+                resumo(stdout, quantidade_de_pacotes, pacotes, meta_diaria_v);
+            }else{
+                exportar_relatorio(quantidade_de_pacotes, pacotes, meta_diaria_v);
+            }
+
+        }else if(menu == 7){
+            if(limpar_historico()){
+                quantidade_de_pacotes = 0;
+                meta_diaria_v = 0;
+            }
+
+        }else if(menu == 8){
+            break;
+        }
+    }
+    printf("\nPrograma encerrado.\n");
+    return 0;
+}
+
+// funçoes =-=-=-==-=-=-==-=-=-==-=-=-==-=-=-==-=-=-==-=-=-==-=-=-==-=-=-==-=-=-==-=-=-=
+
+// le uma linha inteira para nao deixar letras sobrando ===
+bool ler_linha(char linha[], int tamanho){
+    int caractere;
+    for(;;){
+        if(fgets(linha, tamanho, stdin) == NULL) return false;
+        if(strchr(linha, '\n') != NULL || feof(stdin)) return true;
+        while((caractere = getchar()) != '\n' && caractere != EOF);
+        printf("[ERRO] Entrada muito longa. Digite novamente: ");
+    }
+}
+
+// valida numeros inteiros e rejeita entradas como 2abc ===
+int ler_inteiro(const char mensagem[], int minimo, int maximo){
+    char linha[100];
+    char sobra;
+    double valor;
+    for(;;){
+        printf("%s", mensagem);
+        if(!ler_linha(linha, sizeof(linha))) return -1;
+        if(sscanf(linha, "%lf %c", &valor, &sobra) == 1 && isfinite(valor)
+           && valor >= minimo && valor <= maximo && valor == (int)valor){
+            return (int)valor;
+        }
+        printf("[ERRO] Digite um inteiro de %d a %d.\n", minimo, maximo);
+    }
+}
+
+// pesos, distancias e valores usam duas casas decimais ===
+double ler_positivo(const char mensagem[]){
+    char linha[100];
+    char sobra;
+    double valor;
+    for(;;){
+        printf("%s", mensagem);
+        if(!ler_linha(linha, sizeof(linha))) return 0;
+        if(sscanf(linha, "%lf %c", &valor, &sobra) == 1 && isfinite(valor)
+           && valor > 0 && valor <= 1000000000.0){
+            valor = round(valor * 100.0) / 100.0;
+            if(valor > 0) return valor;
+        }
+        printf("[ERRO] Digite de 0.01 a 1000000000. Use ponto nos decimais.\n");
+    }
+}
+
+// funçao opçoes ==========================================
+int dialogo(int menu){
+    printf("\n============================================================\n");
+    printf("                 LOGTECH SGEF - VERSAO 2.0\n");
+    printf("============================================================\n");
+    printf("1 - Cadastrar e Processar Encomenda\n");
+    printf("2 - Listar Encomendas Registradas\n");
+    printf("3 - Buscar Encomenda por ID\n");
+    printf("4 - Cancelar Encomenda\n");
+    printf("5 - Exibir Resumo Estatistico e Indicadores\n");
+    printf("6 - Exportar Relatorio Diario (.txt)\n");
+    printf("7 - Limpar/Reiniciar Historico do Dia\n");
+    printf("8 - Sair\n\n");
+    menu = ler_inteiro("Informe a opcao: ", 1, 8);
+    if(menu == -1) return 8;
+    return menu;
+}
+
+// funçoes opçao 1 =====================================================================
+// funçao meta diaria =====================================
+double meta_diaria(double meta_diaria_v){
+    meta_diaria_v = ler_positivo("Qual a meta de faturamento diario de hoje? R$ ");
+    return meta_diaria_v;
+}
+
+//funçao Cadastrar e Processar encomenda ==================
+int total_pacotes(int quantidade_de_pacotes){
+    quantidade_de_pacotes = ler_inteiro("Quantos pacotes no total: ", 1, LIMITE);
+    if(quantidade_de_pacotes == -1) return 0;
+    return quantidade_de_pacotes;
+}
+
+bool frete_gratis(encomendas pacote){
+    return pacote.categoria == 1 && pacote.peso <= 2.0 && pacote.distancia <= 10.0;
+}
+
+const char *nome_categoria(int categoria){
+    if(categoria == 1) return "Padrao";
+    if(categoria == 2) return "Expressa";
+    return "Prioritaria";
+}
+
+// calcula primeiro a distancia, depois o cupom ============
+void calcular_frete(encomendas *pacote, entrega categorias[]){
+    double valor_peso;
+    entrega categoria = categorias[pacote->categoria - 1];
+
+    if(pacote->peso <= 5.0){
+        valor_peso = 2.0;
+    }else{
+        valor_peso = 3.50;
+    }
+
+    pacote->valor_bruto = pacote->distancia * categoria.ml_distancia
+                         + pacote->peso * valor_peso + categoria.taxa;
+    pacote->valor_bruto = round(pacote->valor_bruto * 100.0) / 100.0;
+    pacote->valor_final = pacote->valor_bruto;
+
+    if(frete_gratis(*pacote)){
+        pacote->valor_final = 0;
+    }else{
+        if(pacote->distancia > 100.0) pacote->valor_final *= 0.90;
+        if(pacote->cupom == 1020) pacote->valor_final *= 0.90;
+        if(pacote->cupom == 2030) pacote->valor_final -= 15.0;
+        if(pacote->valor_final < 0) pacote->valor_final = 0;
+    }
+    pacote->valor_final = round(pacote->valor_final * 100.0) / 100.0;
+}
+
+//funçao cadastrar e registar pacote ======================
+int registar_pacote(int novos, int quantidade, encomendas pacotes[], entrega categorias[]){
+    int registrados = 0;
+    int proximo_id = 1;
+    encomendas novo;
+
+    for(int i = 0; i < quantidade; i++){
+        if(pacotes[i].id >= proximo_id) proximo_id = pacotes[i].id + 1;
+    }
+
+    for(int i = 0; i < novos; i++){
+        novo.id = proximo_id;
+        printf("\nPacote [%03d]\n", novo.id);
+        novo.peso = ler_positivo("Qual o peso do pacote em kg: ");
+        if(novo.peso == 0) break;
+        novo.distancia = ler_positivo("Qual a distancia a ser percorrida em km: ");
+        if(novo.distancia == 0) break;
+        novo.categoria = ler_inteiro("Categoria (1-Padrao, 2-Expressa, 3-Prioritaria): ", 1, 3);
+        if(novo.categoria == -1) break;
+
+        for(;;){
+            novo.cupom = ler_inteiro("Cupom (0-Sem cupom, 1020-LOG10, 2030-DESCONTO15): ", 0, 2030);
+            if(novo.cupom == -1 || novo.cupom == 0 || novo.cupom == 1020 || novo.cupom == 2030) break;
+            printf("[ERRO] Cupom inexistente.\n");
+        }
+        if(novo.cupom == -1) break;
+
+        strcpy(novo.status, "ATIVA");
+        calcular_frete(&novo, categorias);
+        pacotes[quantidade + registrados] = novo;
+
+        if(!salvar_pacotes(quantidade + registrados + 1, pacotes)){
+            printf("\nErro ao salvar. Cadastro nao concluido.\n");
+            break;
+        }
+        registrados++;
+        proximo_id++;
+        comprovante(novo);
+    }
+    return registrados;
+}
+
+// comprovante e detalhes completos =======================
+void comprovante(encomendas pacote){
+    printf("\n============================================================\n");
+    printf("              LOGTECH - COMPROVANTE DE FRETE\n");
+    printf("============================================================\n");
+    printf("Encomenda N               : %03d\n", pacote.id);
+    printf("Categoria Selecionada     : %s\n", nome_categoria(pacote.categoria));
+    printf("Peso Registrado           : %.2f kg\n", pacote.peso);
+    printf("Distancia Percorrida      : %.2f km\n", pacote.distancia);
+    printf("Cupom Informado           : %d", pacote.cupom);
+    if(pacote.cupom == 0) printf(" (Sem cupom)\n");
+    if(pacote.cupom == 1020) printf(" (LOG10 - 10%%)\n");
+    if(pacote.cupom == 2030) printf(" (DESCONTO15 - R$ 15.00)\n");
+    if(frete_gratis(pacote)) printf("Isencao                   : Frete Gratis; cupom nao aplicado\n");
+    printf("Valor Bruto do Frete      : R$ %.2f\n", pacote.valor_bruto);
+    printf("Valor Final Calculado     : R$ %.2f\n", pacote.valor_final);
+    printf("Status                    : %s\n", pacote.status);
+    printf("============================================================\n");
+}
+
+// carrega o historico sem apagar registros invalidos =====
+int carregar_pacotes(encomendas pacotes[]){
+    int quantidade = 0;
+    int campos;
+    char linha[500];
+    char sobra;
+    encomendas novo;
+
+    arquivo_texto = fopen("encomendas.txt", "r");
+    if(arquivo_texto == NULL){
+        if(errno != ENOENT) return -1;
+        // recupera a copia se houve interrupcao durante a troca
+        if(rename("encomendas.bak", "encomendas.txt") != 0){
+            if(errno == ENOENT) return 0;
+            return -1;
+        }
+        arquivo_texto = fopen("encomendas.txt", "r");
+        if(arquivo_texto == NULL) return -1;
+    }
+    while(fgets(linha, sizeof(linha), arquivo_texto) != NULL){
+        campos = sscanf(linha,
+            "ID:%d|TIPO:%d|PESO:%lf|DIST:%lf|CUPOM:%d|BRUTO:%lf|FINAL:%lf|STATUS:%9s %c",
+            &novo.id, &novo.categoria, &novo.peso, &novo.distancia,
+            &novo.cupom, &novo.valor_bruto, &novo.valor_final, novo.status, &sobra);
+
+        if(campos != 8 || quantidade >= LIMITE || novo.id != quantidade + 1
+           || novo.categoria < 1 || novo.categoria > 3
+           || !isfinite(novo.peso) || novo.peso <= 0
+           || !isfinite(novo.distancia) || novo.distancia <= 0
+           || !isfinite(novo.valor_bruto) || novo.valor_bruto < 0
+           || !isfinite(novo.valor_final) || novo.valor_final < 0
+           || (novo.cupom != 0 && novo.cupom != 1020 && novo.cupom != 2030)
+           || (strcmp(novo.status, "ATIVA") != 0 && strcmp(novo.status, "CANCELADA") != 0)){
+            printf("\nRegistro invalido na linha %d de encomendas.txt.\n", quantidade + 1);
+            fclose(arquivo_texto);
+            return -1;
+        }
+        pacotes[quantidade] = novo;
+        quantidade++;
+    }
+    if(ferror(arquivo_texto)){
+        fclose(arquivo_texto);
+        return -1;
+    }
+    fclose(arquivo_texto);
+    remove("encomendas.bak");
+    return quantidade;
+}
+
+// escreve primeiro em um temporario para proteger os dados
+bool salvar_pacotes(int quantidade, encomendas pacotes[]){
+    bool sucesso = true;
+    bool tinha_arquivo = false;
+
+    arquivo_texto = fopen("encomendas.tmp", "w");
+    if(arquivo_texto == NULL) return false;
+    for(int i = 0; i < quantidade; i++){
+        if(fprintf(arquivo_texto,
+            "ID:%03d|TIPO:%d|PESO:%.2f|DIST:%.2f|CUPOM:%d|BRUTO:%.2f|FINAL:%.2f|STATUS:%s\n",
+            pacotes[i].id, pacotes[i].categoria, pacotes[i].peso, pacotes[i].distancia,
+            pacotes[i].cupom, pacotes[i].valor_bruto, pacotes[i].valor_final, pacotes[i].status) < 0){
+            sucesso = false;
+        }
+    }
+    if(fclose(arquivo_texto) == EOF) sucesso = false;
+    if(!sucesso){
+        remove("encomendas.tmp");
+        return false;
+    }
+
+    // a copia de seguranca permite recuperar uma falha na troca
+    if(rename("encomendas.txt", "encomendas.bak") == 0){
+        tinha_arquivo = true;
+    }else if(errno != ENOENT){
+        remove("encomendas.tmp");
+        return false;
+    }
+    if(rename("encomendas.tmp", "encomendas.txt") != 0){
+        if(tinha_arquivo && rename("encomendas.bak", "encomendas.txt") != 0){
+            printf("Recupere encomendas.bak antes de continuar.\n");
+        }
+        return false;
+    }
+    if(tinha_arquivo) remove("encomendas.bak");
+    return true;
+}
+
+// listagem e busca =======================================
+void listar_pacotes(int quantidade, encomendas pacotes[]){
+    if(quantidade == 0){
+        printf("\nNenhuma encomenda cadastrada.\n");
+        return;
+    }
+    printf("\nID  | Tipo        | Peso (kg) | Dist. (km) | Final (R$) | Status\n");
+    for(int i = 0; i < quantidade; i++){
+        printf("%03d | %-11s | %9.2f | %10.2f | %10.2f | %s\n",
+               pacotes[i].id, nome_categoria(pacotes[i].categoria), pacotes[i].peso,
+               pacotes[i].distancia, pacotes[i].valor_final, pacotes[i].status);
+    }
+}
+
+int buscar_pacote(int quantidade, encomendas pacotes[], int id){
+    for(int i = 0; i < quantidade; i++){
+        if(pacotes[i].id == id) return i;
+    }
+    return -1;
+}
+
+// cancelar nao remove a encomenda do vetor ===============
+void cancelar_pacote(int quantidade, encomendas pacotes[]){
+    int id = ler_inteiro("Informe o ID para cancelar: ", 1, LIMITE);
+    int posicao;
+    if(id == -1) return;
+    posicao = buscar_pacote(quantidade, pacotes, id);
+    if(posicao == -1){
+        printf("\nEncomenda nao localizada.\n");
+        return;
+    }
+    if(strcmp(pacotes[posicao].status, "CANCELADA") == 0){
+        printf("\nEsta encomenda ja esta cancelada.\n");
+        return;
+    }
+    strcpy(pacotes[posicao].status, "CANCELADA");
+    if(salvar_pacotes(quantidade, pacotes)){
+        printf("\nEncomenda cancelada com sucesso.\n");
+    }else{
+        strcpy(pacotes[posicao].status, "ATIVA");
+        printf("\nErro ao salvar. Cancelamento nao realizado.\n");
+    }
+}
+
+// resumo e indicadores consideram somente as ativas ======
+// a mesma funcao escreve na tela ou no relatorio =========
+void resumo(FILE *saida, int quantidade, encomendas pacotes[], double meta){
+    int ativas = 0;
+    int isentas = 0;
+    int contagem[3] = {0, 0, 0};
+    int maior_contagem = 0;
+    int predominantes = 0;
+    double faturamento = 0;
+    double soma_peso = 0;
+    double soma_distancia = 0;
+    double maior = 0;
+    double menor = 0;
+    double media_peso = 0;
+    double media_distancia = 0;
+    double taxa_isencao = 0;
+
+    for(int i = 0; i < quantidade; i++){
+        if(strcmp(pacotes[i].status, "CANCELADA") == 0) continue;
+        if(ativas == 0 || pacotes[i].valor_final < menor) menor = pacotes[i].valor_final;
+        if(ativas == 0 || pacotes[i].valor_final > maior) maior = pacotes[i].valor_final;
+        ativas++;
+        faturamento += pacotes[i].valor_final;
+        soma_peso += pacotes[i].peso;
+        soma_distancia += pacotes[i].distancia;
+        contagem[pacotes[i].categoria - 1]++;
+        // cupom que zera o preco nao e isencao pela regra de frete gratis
+        if(frete_gratis(pacotes[i])) isentas++;
+    }
+    if(ativas > 0){
+        media_peso = soma_peso / ativas;
+        media_distancia = soma_distancia / ativas;
+        taxa_isencao = isentas * 100.0 / ativas;
+    }
+
+    fprintf(saida, "Total de Encomendas Processadas : %d\n", quantidade);
+    fprintf(saida, "Total de Encomendas Ativas      : %d\n", ativas);
+    fprintf(saida, "Total de Encomendas Canceladas  : %d\n", quantidade - ativas);
+    fprintf(saida, "------------------------------------------------------------\n");
+    fprintf(saida, "Faturamento Total em Fretes     : R$ %.2f\n", faturamento);
+    fprintf(saida, "Media de Peso (Encomendas Ativas): %.2f kg\n", media_peso);
+    fprintf(saida, "Media de Distancia (Ativas)     : %.2f km\n", media_distancia);
+    fprintf(saida, "------------------------------------------------------------\n");
+    fprintf(saida, "Maior Frete Individual Cobrado  : R$ %.2f\n", maior);
+    fprintf(saida, "Menor Frete Individual Cobrado  : R$ %.2f\n", menor);
+    fprintf(saida, "Total de Isencoes (Frete Gratis): %d encomenda(s)\n", isentas);
+    fprintf(saida, "------------------------------------------------------------\n");
+    fprintf(saida, "           INDICADORES E ALERTAS OPERACIONAIS\n");
+    fprintf(saida, "------------------------------------------------------------\n");
+    fprintf(saida, "Meta de Faturamento (R$ %.2f): R$ %.2f ", meta, faturamento);
+    if(faturamento >= meta){
+        fprintf(saida, "(META ATINGIDA!)\n");
+    }else{
+        fprintf(saida, "(Faltam R$ %.2f)\n", meta - faturamento);
+    }
+    fprintf(saida, "Percentual da meta atingido     : %.2f %%\n", faturamento * 100.0 / meta);
+    fprintf(saida, "Categoria mais utilizada no dia : ");
+    if(ativas == 0){
+        fprintf(saida, "Nenhuma\n");
+    }else{
+        for(int i = 0; i < 3; i++){
+            if(contagem[i] > maior_contagem) maior_contagem = contagem[i];
+        }
+        for(int i = 0; i < 3; i++){
+            if(contagem[i] == maior_contagem){
+                if(predominantes > 0) fprintf(saida, " / ");
+                fprintf(saida, "%s", nome_categoria(i + 1));
+                predominantes++;
+            }
+        }
+        if(predominantes > 1) fprintf(saida, " (empate)");
+        fprintf(saida, "\n");
+    }
+    fprintf(saida, "Taxa de Entregas com Frete Gratis: %.2f %%\n", taxa_isencao);
+    fprintf(saida, "============================================================\n");
+}
+
+// exporta o fechamento com a data do computador ===========
+void exportar_relatorio(int quantidade, encomendas pacotes[], double meta){
+    time_t agora = time(NULL);
+    struct tm *data = localtime(&agora);
+    char data_texto[20] = "Indisponivel";
+    bool sucesso;
+
+    arquivo_texto = fopen("relatorio_diario.txt", "w");
+    if(arquivo_texto == NULL){
+        printf("\nNao foi possivel criar o relatorio.\n");
+        return;
+    }
+    if(data != NULL) strftime(data_texto, sizeof(data_texto), "%d/%m/%Y", data);
+    fprintf(arquivo_texto, "============================================================\n");
+    fprintf(arquivo_texto, "         LOGTECH LOGISTICS - RELATORIO DIARIO\n");
+    fprintf(arquivo_texto, "============================================================\n");
+    fprintf(arquivo_texto, "Data da Exportacao             : %s\n", data_texto);
+    resumo(arquivo_texto, quantidade, pacotes, meta);
+    sucesso = !ferror(arquivo_texto);
+    if(fclose(arquivo_texto) == EOF) sucesso = false;
+    if(sucesso){
+        printf("\nRelatorio salvo em relatorio_diario.txt.\n");
+    }else{
+        printf("\nErro ao escrever o relatorio.\n");
+    }
+}
+
+// apaga o historico somente depois da confirmacao =========
+bool limpar_historico(void){
+    char linha[100];
+    char resposta;
+    char sobra;
+    for(;;){
+        printf("Deseja realmente apagar todo o historico acumulado? [S/N]: ");
+        if(!ler_linha(linha, sizeof(linha))) return false;
+        if(sscanf(linha, " %c %c", &resposta, &sobra) == 1){
+            if(resposta == 'N' || resposta == 'n'){
+                printf("\nHistorico mantido.\n");
+                return false;
+            }
+            if(resposta == 'S' || resposta == 's') break;
+        }
+        printf("[ERRO] Digite S ou N.\n");
+    }
+    if(!salvar_pacotes(0, NULL)){
+        printf("\nErro ao limpar o historico.\n");
+        return false;
+    }
+    printf("\nHistorico reiniciado. Os relatorios ja exportados foram mantidos.\n");
+    return true;
+}
+
